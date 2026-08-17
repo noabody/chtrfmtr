@@ -1,0 +1,162 @@
+diff --git a/main.cpp b/main.cpp
+index dbbbde4..2ff5747 100644
+--- a/main.cpp
++++ b/main.cpp
+@@ -5,6 +5,113 @@
+ #include <functional>
+ #include <optional>
+ #include <variant>
++#define PCRE2_CODE_UNIT_WIDTH 8 // Ensures PCRE2 expects 8-bit characters
++#include <pcre2.h>
++#include <memory>
++
++// Simple struct to mimic QRegularExpressionMatch results
++struct Pcre2Match {
++    bool hasMatch = false;
++    QString captured;
++    int length = 0;
++};
++
++class Pcre2Regex {
++    std::shared_ptr<pcre2_code> re;
++
++public:
++    Pcre2Regex() = default;
++
++    // Compiles the pattern on creation
++    Pcre2Regex(const QString& pattern) {
++        int errornumber;
++        PCRE2_SIZE erroroffset;
++        QByteArray utf8 = pattern.toUtf8();
++        
++        pcre2_code* code = pcre2_compile(
++            reinterpret_cast<PCRE2_SPTR>(utf8.constData()),
++            PCRE2_ZERO_TERMINATED,
++            PCRE2_CASELESS | PCRE2_UTF, // Mimics QRegularExpression::CaseInsensitiveOption
++            &errornumber,
++            &erroroffset,
++            nullptr
++        );
++        
++        if (code) {
++            re = std::shared_ptr<pcre2_code>(code, pcre2_code_free);
++        }
++    }
++
++    // Single match functionality
++    Pcre2Match match(const QString& subject) const {
++        Pcre2Match result;
++        if (!re) return result;
++
++        pcre2_match_data* match_data = pcre2_match_data_create_from_pattern(re.get(), nullptr);
++        QByteArray utf8Subject = subject.toUtf8();
++
++        int rc = pcre2_match(
++            re.get(),
++            reinterpret_cast<PCRE2_SPTR>(utf8Subject.constData()),
++            utf8Subject.length(),
++            0,                      // Start offset
++            0,                      // Options
++            match_data,
++            nullptr
++        );
++
++        if (rc > 0) {
++            PCRE2_SIZE* ovector = pcre2_get_ovector_pointer(match_data);
++            result.hasMatch = true;
++            result.length = ovector[1] - ovector[0]; 
++            result.captured = QString::fromUtf8(utf8Subject.mid(ovector[0], result.length));
++        }
++        
++        pcre2_match_data_free(match_data);
++        return result;
++    }
++
++    // Global match generator (needed for your retroParser module)
++    QVector<Pcre2Match> globalMatch(const QString& subject) const {
++        QVector<Pcre2Match> results;
++        if (!re) return results;
++
++        pcre2_match_data* match_data = pcre2_match_data_create_from_pattern(re.get(), nullptr);
++        QByteArray utf8Subject = subject.toUtf8();
++        PCRE2_SIZE start_offset = 0;
++
++        while (true) {
++            int rc = pcre2_match(
++                re.get(),
++                reinterpret_cast<PCRE2_SPTR>(utf8Subject.constData()),
++                utf8Subject.length(),
++                start_offset,
++                0,
++                match_data,
++                nullptr
++            );
++
++            if (rc < 0) break; // No more matches
++
++            PCRE2_SIZE* ovector = pcre2_get_ovector_pointer(match_data);
++            
++            Pcre2Match m;
++            m.hasMatch = true;
++            m.length = ovector[1] - ovector[0];
++            m.captured = QString::fromUtf8(utf8Subject.mid(ovector[0], m.length));
++            results.append(m);
++
++            start_offset = ovector[1];
++            
++            // Advance by 1 to prevent infinite loops on zero-length matches
++            if (ovector[0] == ovector[1]) {
++                start_offset++;
++            }
++        }
++        pcre2_match_data_free(match_data);
++        return results;
++    }
++};
+ 
+ // Multi-Emulator Cheat Reformatter - Qt 6 port
+ // Monolithic port of the supplied Avalonia / PySide6 program.
+@@ -53,7 +160,7 @@ struct OutputModule {
+ 
+ struct Pattern {
+     QString key;
+-    QRegularExpression regex;
++    Pcre2Regex regex;
+ };
+ 
+ class MainWindow : public QMainWindow {
+@@ -150,8 +257,8 @@ private:
+     // -------------------------------------------------------------------------
+     // REGEX / PARSING
+     // -------------------------------------------------------------------------
+-    QRegularExpression R(const QString &p) const {
+-        return QRegularExpression(p, QRegularExpression::CaseInsensitiveOption);
++    Pcre2Regex R(const QString &p) const {
++        return Pcre2Regex(p);
+     }
+ 
+     void buildPatternLibrary() {
+@@ -196,9 +303,12 @@ private:
+         static const QRegularExpression reLeadingTrash(R"(^[*\t\s#]+)");
+         QString clean = rawLine.trimmed();
+         clean.remove(reLeadingTrash);
++        
+         for (const auto &p : systemCodePatterns.value(systemName)) {
+-            auto m = p.regex.match(clean);
+-            if (m.hasMatch()) return ParseResult{m.captured(0).toUpper().trimmed(), p.key, m.capturedLength(0)};
++            auto m = p.regex.match(clean);
++            if (m.hasMatch) {
++                return ParseResult{m.captured.toUpper().trimmed(), p.key, m.length};
++            }
+         }
+         return std::nullopt;
+     }
+@@ -635,7 +745,7 @@ private:
+         registerInput("Nintendo NES", "NES Cheat Files (*.cht)", nesParser,[this](const QString&p,const QString&,const auto&parse){QString sniff=readAllLines(p).mid(0,3).join(" ").trimmed();if(QRegularExpression(R"((^cheats\s*=)|(^cheat\d+_))").match(sniff).hasMatch())importRetroArchChtEngine(p,"NES",parse);else importNesChtEngine(p,parse);});
+         registerOutput("nes.emu (.cht)", "nes.emu Cheat Files (*.cht)", [this](const QString&p){exportNes(p);});
+ 
+-        auto retroParser=[this](const QString&input,const QString&target){if(target.isEmpty())return ParseOutput{};QString system=systemKey(target);if(!systemCodePatterns.contains(system))return ParseOutput{};QString sanitized=input;sanitized.replace('+',' ');QStringList results;int match=0;for(const auto&p:systemCodePatterns.value(system)){auto it=p.regex.globalMatch(sanitized);while(it.hasNext()){auto m=it.next();QString c=m.captured(0).toUpper().trimmed();if(!c.isEmpty()){results<<c;match+=m.capturedLength(0);}}}return ParseOutput{!results.isEmpty(),results,input.length(),match};};
++        auto retroParser=[this](const QString&input,const QString&target){if(target.isEmpty()) return ParseOutput{};QString system = systemKey(target);if(!systemCodePatterns.contains(system)) return ParseOutput{};QString sanitized = input;sanitized.replace('+', ' ');QStringList results;int match = 0;for(const auto&p : systemCodePatterns.value(system)){auto matches = p.regex.globalMatch(sanitized);for(const auto& m : matches){QString c = m.captured.toUpper().trimmed();if(!c.isEmpty()){results << c;match += m.length;}}}return ParseOutput{!results.isEmpty(), results, input.length(), match};};
+         registerInput("RetroArch (Global)", "RetroArch Cheat Files (*.cht)", retroParser,[this](const QString&p,const QString&profile,const auto&parse){importRetroArchChtEngine(p,profile,parse);});
+         registerOutput("RetroArch (.cht)", "RetroArch Cheat Files (*.cht)", [this](const QString&p){exportRetroArch(p);});
+     }

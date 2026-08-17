@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 512 512"
+     width="512"
+     height="512">
+
+  <defs>
+    <!-- Soft Drop Shadows -->
+    <filter id="shadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="3" dy="4" stdDeviation="3" flood-color="#000000" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+
+  <!-- =========================================================
+       1. SOLID BLUE CIRCULAR BOUNDARY
+       ========================================================= -->
+  <circle cx="256" cy="256" r="220" fill="#2196F3" />
+
+  <!-- =========================================================
+       2. TOP-LEFT DARK PAGE (DARK CONTRAST)
+       ========================================================= -->
+  <g filter="url(#shadow)">
+    <!-- Base Sheet -->
+    <path d="M 110 108 
+             H 218 
+             L 248 138 
+             V 298 
+             Q 248 304 242 304 
+             H 116 
+             Q 110 304 110 298 
+             Z" 
+          fill="#3B2E2B" />
+
+    <!-- Folded Top-Right Corner -->
+    <path d="M 218 108 V 134 Q 218 138 222 138 H 248 Z" fill="#E2E2E2" />
+
+    <!-- Inner Window/Screen Area -->
+    <rect x="134" y="146" width="86" height="74" rx="12" fill="#524340" />
+  </g>
+
+  <!-- =========================================================
+       3. BOTTOM-RIGHT LIGHT PAGE
+       ========================================================= -->
+  <g filter="url(#shadow)">
+    <!-- Base Sheet -->
+    <path d="M 264 208 
+             H 372 
+             L 402 238 
+             V 398 
+             Q 402 404 396 404 
+             H 270 
+             Q 264 404 264 398 
+             Z" 
+          fill="#FFFFFF" />
+
+    <!-- Folded Top-Right Corner -->
+    <path d="M 372 208 V 234 Q 372 238 376 238 H 402 Z" fill="#3B2E2B" />
+
+    <!-- Inner Window/Screen Area -->
+    <rect x="288" y="256" width="86" height="74" rx="12" fill="#E8E8E8" />
+  </g>
+
+  <!-- =========================================================
+       4. TOP-RIGHT QUARTER-ARC ARROW (DARK / COUNTER-CLOCKWISE)
+          Fills the top-right empty space; points down-left toward the bottom page.
+       ========================================================= -->
+  <g filter="url(#shadow)">
+    <!-- Arc Body -->
+    <path d="M 382 186 C 382 120, 330 96, 292 96" 
+          fill="none" 
+          stroke="#3B2E2B" 
+          stroke-width="26" 
+          stroke-linecap="round" />
+    <!-- Arrowhead -->
+    <path d="M 295 70 L 295 122 L 250 96 Z" fill="#3B2E2B" />
+  </g>
+
+  <!-- =========================================================
+       5. BOTTOM-LEFT QUARTER-ARC ARROW (WHITE / COUNTER-CLOCKWISE)
+          Fills the bottom-left empty space; points up-right toward the top page.
+       ========================================================= -->
+  <g filter="url(#shadow)">
+    <!-- Arc Body -->
+    <path d="M 130 326 C 130 392, 182 416, 220 416" 
+          fill="none" 
+          stroke="#FFFFFF" 
+          stroke-width="26" 
+          stroke-linecap="round" />
+    <!-- Arrowhead -->
+    <path d="M 217 442 L 217 390 L 262 416 Z" fill="#FFFFFF" />
+  </g>
+
+</svg>

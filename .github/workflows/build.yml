@@ -1,0 +1,116 @@
+name: Build chtrfmtr
+
+on:
+  workflow_dispatch:
+
+jobs:
+  linux:
+    name: Linux x64
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Qt6
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qt6-base-dev qt6-tools-dev cmake build-essential
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build Qt6
+        run: |
+          cmake -S . -B build-qt6
+          cmake --build build-qt6 --config Release
+
+      - name: Build .NET 10
+        run: |
+          dotnet publish \
+            -c Release \
+            -r linux-x64 \
+            --self-contained \
+            -p:PublishReadyToRun=true \
+            -p:PublishSingleFile=true \
+            -p:EnableCompressionInSingleFile=true \
+            chtrfmtr.csproj \
+            -o build-net10
+
+      - name: Upload Qt6 build
+        uses: actions/upload-artifact@v4
+        with:
+          name: chtrfmtr-qt6-linux-x64
+          path: build-qt6/chtrfmtr
+
+      - name: Upload .NET 10 build
+        uses: actions/upload-artifact@v4
+        with:
+          name: chtrfmtr-dotnet10-linux-x64
+          path: build-net10/
+
+
+  windows:
+    name: Windows x64
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Qt6
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.3'
+          host: 'windows'
+          target: 'desktop'
+          arch: 'win64_msvc2022_64'
+          modules: ''
+          cache: true
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Configure Qt6
+        run: |
+          cmake -S . -B build-qt6 -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build Qt6
+        run: |
+          cmake --build build-qt6 --config Release
+
+      - name: Deploy Qt6
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path qt6-deploy
+          Copy-Item build-qt6\Release\chtrfmtr.exe qt6-deploy\chtrfmtr.exe
+          windeployqt --release --compiler-runtime qt6-deploy\chtrfmtr.exe
+
+      - name: Build .NET 10
+        shell: pwsh
+        run: |
+          dotnet publish `
+            -c Release `
+            -r win-x64 `
+            --self-contained `
+            -p:PublishReadyToRun=true `
+            -p:PublishSingleFile=true `
+            -p:EnableCompressionInSingleFile=true `
+            chtrfmtr.csproj `
+            -o build-net10
+
+      - name: Upload Qt6 build
+        uses: actions/upload-artifact@v4
+        with:
+          name: chtrfmtr-qt6-windows-x64
+          path: qt6-deploy/
+
+      - name: Upload .NET 10 build
+        uses: actions/upload-artifact@v4
+        with:
+          name: chtrfmtr-dotnet10-windows-x64
+          path: build-net10/

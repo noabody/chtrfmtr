@@ -1,0 +1,17 @@
+[build-system]
+requires = ["flit_core>=3.2"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "chtrfmtr"
+version = "0.1.0"
+description = "Multi-Emulator Cheat Reformatter"
+requires-python = ">=3.8"
+
+dependencies = [
+    "PySide6",
+    "regex",
+]
+
+[project.scripts]
+chtrfmtr-pyside6 = "chtrfmtr:main"
