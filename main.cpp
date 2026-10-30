@@ -497,16 +497,16 @@ private:
     void importMyBoyChtEngine(const QString &path) {
         QFile f(path); if (!f.open(QIODevice::ReadOnly)) throw std::runtime_error(f.errorString().toStdString());
         QDomDocument doc;
-        QString err;
-        int line = 0;
-        int col = 0;
+
+        QDomDocument::ParseResult parseResult =
+            doc.setContent(&f, QDomDocument::ParseOption::UseNamespaceProcessing);
         
-        if (!doc.setContent(&f, true, &err, &line, &col)) {
+        if (!parseResult) {
             throw std::runtime_error(
                 QString("Failed parsing MyBoy XML target: %1 (line %2, column %3)")
-                    .arg(err)
-                    .arg(line)
-                    .arg(col)
+                    .arg(parseResult.errorMessage)
+                    .arg(parseResult.errorLine)
+                    .arg(parseResult.errorColumn)
                     .toStdString()
             );
         }
